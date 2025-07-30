@@ -33,11 +33,11 @@ export const signin = async (req, res, next) => {
     if (!isValidPassword) return next(throwError(401, "Worng Credentials!"));
 
     const { password, ...rest } = validUser._doc;
-    const tooken = jwt.sign({ id: validUser._id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: validUser._id }, process.env.JWT_SECRET, {
       expiresIn: "720h",
     });
     res
-      .cookie("access_token", tooken, { httpOnly: true, secure: true })
+      .cookie("access_token", token, { httpOnly: true, secure: true })
       .status(200)
       .json(rest);
   } catch (error) {
