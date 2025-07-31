@@ -104,7 +104,6 @@ async function handleUserCreated(userData) {
       first_name,
       last_name,
       username,
-      image_url,
     } = userData;
 
     // Get primary email
@@ -131,9 +130,9 @@ async function handleUserCreated(userData) {
     const newUser = new User({
       clerkId,
       email: primaryEmail?.email_address || "",
-      name: `${first_name || ""} ${last_name || ""}`.trim(),
+      firstName: first_name || "",
+      lastName: last_name || "",
       username: username || `user_${clerkId.slice(-8)}`,
-      avatar: image_url || "",
       // Add any other fields your existing User schema requires
     });
 
