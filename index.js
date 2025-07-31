@@ -12,7 +12,7 @@ import notificatonRoute from "./api/routes/notification.route.js";
 import path from "path";
 import http from "http";
 import { Server } from "socket.io";
-import { clerkWebhook } from "./api/webhooks/register/clerk.js";
+import { verifyWebhook } from "@clerk/express/webhooks";
 
 const app = express();
 app.use(express.json());
@@ -60,7 +60,29 @@ app.use("/health", (req, res) => {
 });
 
 // Webhooks
-app.post("/api/webhooks/register", clerkWebhook);
+app.post(
+  "/api/webhooks/register",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    try {
+      const evt = await verifyWebhook(req);
+
+      // Do something with payload
+      // For this guide, log payload to console
+      const { id } = evt.data;
+      const eventType = evt.type;
+      console.log(
+        `Received webhook with ID ${id} and event type of ${eventType}`
+      );
+      console.log("Webhook payload:", evt.data);
+
+      return res.send("Webhook received");
+    } catch (err) {
+      console.error("Error verifying webhook:", err);
+      return res.status(400).send("Error verifying webhook");
+    }
+  }
+);
 
 // Routes
 app.use("/api/users", userRouter);
