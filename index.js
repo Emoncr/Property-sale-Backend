@@ -49,6 +49,7 @@ async function main() {
 
 // Import your existing User model
 import User from "./api/models/user.models.js";
+import { Webhook } from "svix";
 
 // Starting the server
 expressServer.listen(PORT, () => {
@@ -67,40 +68,29 @@ app.post(
   "/api/webhooks/clerk",
   express.raw({ type: "application/json" }),
   async (req, res) => {
+    const payload = req.body.toString("utf8");
+    const headers = req.headers;
+    const secret = process.env.CLERK_WEBHOOK_SECRET;
     try {
-      const evt = await verifyWebhook(req);
-      const { id } = evt.data;
-      const eventType = evt.type;
+      const wh = new Webhook(secret);
+      const event = wh.verify(payload, headers); // Verifies signature & parses event
+      console.log("Received Clerk webhook event:", wh);
 
-      console.log(
-        `Received webhook with ID ${id} and event type of ${eventType}`
-      );
+      if (event.type === "user.created") {
+        const user = event.data;
+        console.log(
+          "✅ New Clerk user:",
+          user.id,
+          user.email_addresses[0].email_address
+        );
 
-      switch (eventType) {
-        case "user.created":
-          await handleUserCreated(evt.data);
-          break;
-
-        case "user.updated":
-          await handleUserUpdated(evt.data);
-          break;
-
-        case "user.deleted":
-          await handleUserDeleted(evt.data);
-          break;
-
-        default:
-          console.log(`Unhandled event type: ${eventType}`);
+        await handleUserCreated(event.data); // ➜ Here you can create user in your database or trigger onboarding
       }
 
-      return res
-        .status(200)
-        .json({ success: true, message: "Webhook processed successfully" });
+      res.status(200).send("Webhook processed");
     } catch (err) {
-      console.error("Error processing webhook:", err);
-      return res
-        .status(400)
-        .json({ success: false, message: "Error processing webhook" });
+      console.error("❌ Webhook verification failed:", err.message);
+      res.status(400).send("Invalid signature");
     }
   }
 );
@@ -239,8 +229,6 @@ async function cleanupUserData(clerkId) {
     console.error("Error cleaning up user data:", error);
   }
 }
-
-
 
 // Routes
 app.use("/api/users", userRouter);
