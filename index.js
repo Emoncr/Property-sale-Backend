@@ -138,7 +138,7 @@ app.use("/health", (req, res) => {
 // Handle User Creation - Simplified for existing auth system
 async function handleUserCreated(userData) {
   try {
-    console.log("Creating user from Clerk data:", userData.id);
+    console.log("Creating user from Clerk data:", userData);
 
     const {
       id: clerkId,
@@ -183,7 +183,7 @@ async function handleUserCreated(userData) {
       firstName: first_name || "",
       lastName: last_name || "",
       username: username || `user_${clerkId.slice(-8)}`,
-      avatar: image_url || "",
+
       // Add any other fields your existing User schema requires
     });
 
