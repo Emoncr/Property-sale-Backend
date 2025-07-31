@@ -47,6 +47,9 @@ async function main() {
   console.log("Database connected");
 }
 
+// Import your existing User model
+import User from "./api/models/user.models.js";
+
 // Starting the server
 expressServer.listen(PORT, () => {
   console.log(`Server running at port ${PORT}`);
@@ -59,30 +62,185 @@ app.use("/health", (req, res) => {
   });
 });
 
-// Webhooks
+// Enhanced Webhooks for User Management
 app.post(
-  "/api/webhooks/register",
+  "/api/webhooks/clerk",
   express.raw({ type: "application/json" }),
   async (req, res) => {
     try {
       const evt = await verifyWebhook(req);
-
-      // Do something with payload
-      // For this guide, log payload to console
       const { id } = evt.data;
       const eventType = evt.type;
+
       console.log(
         `Received webhook with ID ${id} and event type of ${eventType}`
       );
-      console.log("Webhook payload:", evt.data);
 
-      return res.send("Webhook received");
+      switch (eventType) {
+        case "user.created":
+          await handleUserCreated(evt.data);
+          break;
+
+        case "user.updated":
+          await handleUserUpdated(evt.data);
+          break;
+
+        case "user.deleted":
+          await handleUserDeleted(evt.data);
+          break;
+
+        default:
+          console.log(`Unhandled event type: ${eventType}`);
+      }
+
+      return res
+        .status(200)
+        .json({ success: true, message: "Webhook processed successfully" });
     } catch (err) {
-      console.error("Error verifying webhook:", err);
-      return res.status(400).send("Error verifying webhook");
+      console.error("Error processing webhook:", err);
+      return res
+        .status(400)
+        .json({ success: false, message: "Error processing webhook" });
     }
   }
 );
+
+// Handle User Creation - Simplified for existing auth system
+async function handleUserCreated(userData) {
+  try {
+    const {
+      id: clerkId,
+      email_addresses,
+      first_name,
+      last_name,
+      username,
+      image_url,
+    } = userData;
+
+    // Get primary email
+    const primaryEmail = email_addresses.find(
+      (email) => email.id === userData.primary_email_address_id
+    );
+
+    // Check if user already exists (to avoid duplicates)
+    const existingUser = await User.findOne({
+      $or: [{ clerkId }, { email: primaryEmail?.email_address }],
+    });
+
+    if (existingUser) {
+      // Update existing user with Clerk ID if missing
+      if (!existingUser.clerkId) {
+        existingUser.clerkId = clerkId;
+        await existingUser.save();
+      }
+      console.log(`User already exists: ${existingUser.email}`);
+      return;
+    }
+
+    // Create new user from Clerk data
+    const newUser = new User({
+      clerkId,
+      email: primaryEmail?.email_address || "",
+      name: `${first_name || ""} ${last_name || ""}`.trim(),
+      username: username || `user_${clerkId.slice(-8)}`,
+      avatar: image_url || "",
+      // Add any other fields your existing User schema requires
+    });
+
+    await newUser.save();
+    console.log(`New Clerk user created: ${newUser.email}`);
+  } catch (error) {
+    console.error("Error creating Clerk user:", error);
+    throw error;
+  }
+}
+
+// Handle User Update
+async function handleUserUpdated(userData) {
+  try {
+    const {
+      id: clerkId,
+      email_addresses,
+      first_name,
+      last_name,
+      username,
+      image_url,
+    } = userData;
+
+    const primaryEmail = email_addresses.find(
+      (email) => email.id === userData.primary_email_address_id
+    );
+
+    const updatedUser = await User.findOneAndUpdate(
+      { clerkId },
+      {
+        email: primaryEmail?.email_address || "",
+        firstName: first_name || "",
+        lastName: last_name || "",
+        username: username || "",
+        avatar: image_url || "",
+        updatedAt: new Date(),
+      },
+      { new: true }
+    );
+
+    if (updatedUser) {
+      console.log(`User updated successfully: ${updatedUser.email}`);
+    } else {
+      console.log(`User not found for update: ${clerkId}`);
+    }
+  } catch (error) {
+    console.error("Error updating user:", error);
+    throw error;
+  }
+}
+
+// Handle User Deletion
+async function handleUserDeleted(userData) {
+  try {
+    const { id: clerkId } = userData;
+
+    const deletedUser = await User.findOneAndDelete({ clerkId });
+
+    if (deletedUser) {
+      console.log(`User deleted successfully: ${deletedUser.email}`);
+
+      // Optional: Clean up user-related data
+      // await cleanupUserData(clerkId);
+    } else {
+      console.log(`User not found for deletion: ${clerkId}`);
+    }
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    throw error;
+  }
+}
+
+// Optional: Welcome notification function
+async function sendWelcomeNotification(user) {
+  try {
+    // Add your notification logic here
+    // This could be sending an email, creating a notification record, etc.
+    console.log(`Sending welcome notification to ${user.email}`);
+  } catch (error) {
+    console.error("Error sending welcome notification:", error);
+  }
+}
+
+// Optional: Cleanup function for user deletion
+async function cleanupUserData(clerkId) {
+  try {
+    // Clean up user-related data like posts, messages, etc.
+    // Example:
+    // await Post.deleteMany({ userId: clerkId });
+    // await Message.deleteMany({ senderId: clerkId });
+    console.log(`Cleaning up data for user: ${clerkId}`);
+  } catch (error) {
+    console.error("Error cleaning up user data:", error);
+  }
+}
+
+
 
 // Routes
 app.use("/api/users", userRouter);
