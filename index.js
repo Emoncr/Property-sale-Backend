@@ -107,7 +107,10 @@ if (process.env.NODE_ENV === "local") {
 } else {
   app.use(
     cors({
-      origin: "*",
+      origin: [
+        "https://property-sell.vercel.app",
+        "property-sell.onrender.com",
+      ],
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     })
@@ -267,7 +270,6 @@ async function handleUserDeleted(userData) {
     throw error;
   }
 }
-
 
 // Optional: Welcome notification function
 async function sendWelcomeNotification(user) {
