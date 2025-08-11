@@ -109,7 +109,7 @@ if (process.env.NODE_ENV === "local") {
     cors({
       origin: [
         "https://property-sell.vercel.app",
-        "property-sell.onrender.com",
+        "https://property-sale.onrender.com/",
       ],
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
